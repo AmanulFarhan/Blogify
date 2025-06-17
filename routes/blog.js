@@ -1,22 +1,28 @@
 const { Router } = require("express");
 const Blog = require("../models/blog");
 const multer = require("multer");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const Comment = require("../models/comment");
 
 const router = Router();
 
-const storage = multer.diskStorage({
-    destination: function(req, file, cb) {
-        cb(null, path.resolve(`./public/uploads/`));
-    },
-    filename: function(req, file, cb) {
-        const fileName = `${Date.now()}-${file.originalname}`
-        cb(null, fileName);
-    }
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const upload = multer({storage});
+const storage = new multer.CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: "blogify_uploads",
+        allowed_formats: ["jpeg", "jpg", "png", "webp"],
+    },
+});
+
+const upload = multer({ storage });
 
 router.get("/add-new", (req, res) => {
     return res.render("addBlog", {
@@ -50,7 +56,7 @@ router.post("/", upload.single("coverImage"), async(req, res) => {
     const blog = await Blog.create({
         title,
         body,
-        coverImageURL: `/uploads/${req.file.filename}`,
+        coverImageURL: req.file.path,
         createdBy: req.user._id,
     })
     return res.redirect(`/blog/${blog._id}`);
